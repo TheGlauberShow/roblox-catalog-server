@@ -1,41 +1,48 @@
 import express from "express";
 import fetch from "node-fetch";
 
-const app = express(); // ← ISSO ESTAVA FALTANDO
+const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+
+/*
+  Endpoint:
+  /search?keyword=hat&category=Accessories&cursor=
+*/
 app.get("/search", async (req, res) => {
-    try {
-        const q = req.query.q || "";
-        const cursor = req.query.cursor || "";
+  try {
+    const keyword = req.query.keyword || "";
+    const cursor = req.query.cursor || "";
+    const category = req.query.category || "All";
 
-        const url =
-          `https://catalog.roblox.com/v1/search/items/details` +
-          `?Keyword=${encodeURIComponent(q)}` +
-          `&Limit=30` +
-          `&Cursor=${cursor}`;
+    // Mapear categorias para IDs do catálogo Roblox
+    const categoryMap = {
+      All: null,
+      Accessories: 11,
+      ClassicClothes: 3,
+      Bundles: 13
+    };
 
-        const r = await fetch(url);
-        const data = await r.json();
+    const categoryId = categoryMap[category];
 
-        res.json({
-            items: data.data.map(item => ({
-                id: item.id,
-                name: item.name,
-                price: item.price,
-                creator: item.creatorName,
-                description: item.description,
-                thumbnail:
-                  `https://www.roblox.com/asset-thumbnail/image?assetId=${item.id}&width=420&height=420&format=png`
-            })),
-            nextCursor: data.nextPageCursor
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Backend error" });
-    }
+    let url =
+      `https://catalog.roblox.com/v1/search/items/details?` +
+      `Keyword=${encodeURIComponent(keyword)}` +
+      `&Limit=30` +
+      (categoryId ? `&Category=${categoryId}` : "") +
+      (cursor ? `&Cursor=${cursor}` : "");
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Catalog fetch failed" });
+  }
 });
 
 app.listen(PORT, () => {
-    console.log("Servidor rodando na porta", PORT);
+  console.log("Catalog server running on port", PORT);
 });
